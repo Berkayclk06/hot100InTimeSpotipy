@@ -2,7 +2,6 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 import spotipy
-from spotipy.oauth2 import SpotifyOAuth
 import os
 
 format_YYYYMMDD = "%Y-%m-%d"
@@ -12,12 +11,7 @@ SPOTIPY_CLIENT_ID = os.environ["SPOTIPY_CLIENT_ID"]
 SPOTIPY_CLIENT_SECRET = os.environ["SPOTIPY_CLIENT_SECRET"]
 SPOTIPY_REDIRECT_URI = os.environ["SPOTIPY_REDIRECT_URI"]
 
-params = {
-    "client_id": SPOTIPY_CLIENT_ID,
-    "client_secret": SPOTIPY_CLIENT_SECRET,
-    "redirect_uri": SPOTIPY_REDIRECT_URI,
-}
-
+#################### INPUT CHECK #######################
 
 while True:
     req_date = input("Which year do you want to travel to? Type the date in this format YYYY-MM-DD:\n")
@@ -32,6 +26,8 @@ while True:
     except ValueError:
         print("The string is not a date with format YYYY-MM-DD")
 
+##################### WEB SCRAPING #########################
+
 response = requests.get(f"{URL}{req_date}")
 web_page = response.text
 
@@ -41,12 +37,38 @@ song_name_sc = soup.find_all(name="h3", id="title-of-a-story", class_="a-truncat
 
 song_names = [song.getText().strip("\n\t") for song in song_name_sc]
 
+################### SPOTIFY API ##########################
+
 scope = "playlist-modify-private"
 
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope))
+spotify_auth = spotipy.oauth2.SpotifyOAuth(client_id=SPOTIPY_CLIENT_ID,
+                                           client_secret=SPOTIPY_CLIENT_SECRET,
+                                           redirect_uri=SPOTIPY_REDIRECT_URI,
+                                           scope=scope,
+                                           cache_path=".cache")
 
-results = sp.current_user_saved_tracks()
+################### SEARCH SONGS ######################
+song_uris = []
+year = req_date[:4]
+sp = spotipy.Spotify(oauth_manager=spotify_auth)
 
-for idx, item in enumerate(results['items']):
-    track = item['track']
-    print(idx, track['artists'][0]['name'], " – ", track['name'])
+# access_token = spotify_auth.get_access_token()
+
+user_id = sp.current_user()["id"]
+
+for song in song_names:
+    result = sp.search(q=f"track:{song} year:{year}", type="track")
+    # print(result)
+    try:
+        uri = result["tracks"]["items"][0]["uri"]
+        song_uris.append(uri)
+    except IndexError:
+        print(f"{song} doesn't exist in Spotify. Skipped.")
+
+################# CREATE & ADD SONGS TO PLAYLIST ################
+
+playlist = sp.user_playlist_create(user=user_id,
+                                   name=f"{req_date} Billboard 100",
+                                   public=False)
+
+sp.playlist_add_items(playlist["id"], song_uris)
