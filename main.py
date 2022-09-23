@@ -52,6 +52,9 @@ song_uris = []
 year = req_date[:4]
 sp = spotipy.Spotify(oauth_manager=spotify_auth)
 
+################## BEFORE RUNNING THE CODE UNCOMMENT CODE AND GET A .cache FILE ################
+################## AFTER GETTING THE FILE YOU MUST COMMENT OUT THE CODE LINE AGAIN. ################
+
 # access_token = spotify_auth.get_access_token()
 
 user_id = sp.current_user()["id"]
